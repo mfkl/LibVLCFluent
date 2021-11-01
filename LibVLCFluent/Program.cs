@@ -1,5 +1,6 @@
 ﻿using CppAst;
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Net;
@@ -16,6 +17,7 @@ namespace LibVLCFluent
         const string VLC = "vlc";
         const string INCLUDE = "include";
         const string VLC_ARRAYS = "vlc_arrays.h";
+        const string VLC_FIXUPS = "vlc_fixups.h";
         const string SRC = "src";
         const string LIBVLC_MEDIA = "libvlc_media.h";
         const string LIBVLC_MODULE = "libvlc-module.c";
@@ -36,8 +38,20 @@ namespace LibVLCFluent
 
             var vlcDir = Path.Combine(SOURCE_PATH, SOURCE_MAJOR_VERSION);
             PatchHeader(VLC_ARRAYS);
+            PatchHeader(VLC_FIXUPS);
 
             var r = Parse(vlcDir);
+            if (r.Diagnostics.HasErrors)
+            {
+                foreach (var m in r.Diagnostics.Messages)
+                {
+                    if (m.Type != CppLogMessageType.Error) continue;
+                    Debug.WriteLine($"{nameof(m.Location)}: {m.Location}");
+                    Debug.WriteLine(m.Text);
+                }
+            }
+            else
+                Debug.WriteLine("no error");
 
         }
 
@@ -57,17 +71,33 @@ typedef long long ssize_t;  /* windows 64 bits */
 #endif";
                 File.WriteAllText(fileToPatch, patch + lines);
             }
+
+            // in vlc_fixups.h
+            // comment out 
+            // #if !defined (HAVE_DIRFD) || \
+            //     !defined (HAVE_FDOPENDIR)
+            // # include <dirent.h>
+            // #endif
+
+            // and
+
+            // #ifndef HAVE_LLDIV
+            // typedef struct
+            // {
+            //     long long quot; /* Quotient. */
+            //     long long rem;  /* Remainder. */
+            // } lldiv_t;
+            // #endif
         }
 
         private static CppCompilation Parse(string vlcDir)
         {
-            var parserOptions = new CppParserOptions
-            {
-            };
-            parserOptions = parserOptions.ConfigureForWindowsMsvc();
+            var parserOptions = new CppParserOptions();
+            //parserOptions.Defines.Add("N_");
             parserOptions.IncludeFolders.Add(Path.Combine(vlcDir, INCLUDE));
             //return CppParser.ParseFile(Path.Combine(vlcDir, INCLUDE, "vlc", "vlc.h"), parserOptions);
-            return CppParser.ParseFile(Path.Combine(vlcDir, SRC, LIBVLC_MODULE), parserOptions);
+            return CppParser.ParseFile(Path.Combine(vlcDir, INCLUDE, "vlc_fixups.h"), parserOptions);
+            //return CppParser.ParseFile(Path.Combine(vlcDir, SRC, LIBVLC_MODULE), parserOptions);
         }
     }    
 }
