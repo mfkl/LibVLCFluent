@@ -91,6 +91,7 @@ typedef long long ssize_t;  /* windows 64 bits */
             parserOptions.Defines.Add("HAVE_GETPID"); 
 
             parserOptions.IncludeFolders.Add(Path.Combine(vlcDir, INCLUDE));
+            parserOptions.ParseAsCpp = false;
 
             return CppParser.ParseFiles(new System.Collections.Generic.List<string>
             {
